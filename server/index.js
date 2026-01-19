@@ -70,6 +70,21 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Shanghai Tour Guide API is running' });
 });
 
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from React app
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  // All non-API routes should serve the React app
+  app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
+
 // Database connection and sync
 async function initializeDatabase() {
   const connected = await testConnection();
