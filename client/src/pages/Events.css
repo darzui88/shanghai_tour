@@ -1,0 +1,94 @@
+.event-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.event-card.featured {
+  border: 2px solid #f39c12;
+}
+
+.featured-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #f39c12;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  z-index: 10;
+}
+
+.event-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+  margin-bottom: 15px;
+}
+
+.event-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.event-card:hover .event-image img {
+  transform: scale(1.05);
+}
+
+.event-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-date {
+  color: #457b9d;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.date-icon {
+  margin-right: 5px;
+}
+
+.event-info h3 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+  color: #1d3557;
+}
+
+.event-venue {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.event-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 10px 0;
+  flex: 1;
+}
+
+.event-category {
+  display: inline-block;
+  background-color: #e8f4f8;
+  color: #457b9d;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  margin-top: 10px;
+}
+
+.event-price {
+  margin-top: 10px;
+  font-weight: 500;
+  color: #e63946;
+}

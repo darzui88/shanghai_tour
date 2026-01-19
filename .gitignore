@@ -1,0 +1,23 @@
+node_modules/
+.env
+.DS_Store
+dist/
+build/
+*.log
+.vscode/
+.idea/
+coverage/
+
+# 备份文件和数据库转储
+*.zip
+*.bak
+dump-*.sql
+*.sql.bak
+
+# 操作系统文件
+Thumbs.db
+.DS_Store
+
+# 临时文件
+*.tmp
+*.temp

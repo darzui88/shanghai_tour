@@ -1,0 +1,76 @@
+.location-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.location-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+  margin-bottom: 15px;
+}
+
+.location-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.location-card:hover .location-image img {
+  transform: scale(1.05);
+}
+
+.location-info h3 {
+  font-size: 1.25rem;
+  margin-bottom: 5px;
+  color: #1d3557;
+}
+
+.chinese-name {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.location-address {
+  color: #457b9d;
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.location-district {
+  color: #666;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+
+.location-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 10px 0;
+  flex: 1;
+}
+
+.rating {
+  margin: 10px 0;
+  color: #f39c12;
+  font-weight: 500;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.category-tag {
+  background-color: #e8f4f8;
+  color: #457b9d;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+}
