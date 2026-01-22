@@ -63,7 +63,9 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/guides', require('./routes/guides'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api', require('./routes/scraper'));
 
 // Health check
 app.get('/api/health', (req, res) => {

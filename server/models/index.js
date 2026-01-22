@@ -5,6 +5,7 @@ const Event = require('./Event');
 const Order = require('./Order');
 const Admin = require('./Admin');
 const Guide = require('./Guide');
+const User = require('./User');
 
 // Sync database (create tables if they don't exist)
 async function syncDatabase(force = false) {
@@ -26,5 +27,6 @@ module.exports = {
   Order,
   Admin,
   Guide,
+  User,
   syncDatabase
 };

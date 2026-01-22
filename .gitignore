@@ -14,6 +14,10 @@ coverage/
 dump-*.sql
 *.sql.bak
 
+# 数据库备份目录（允许提交备份文件到 GitHub）
+database-backups/*
+!database-backups/*.sql
+
 # 操作系统文件
 Thumbs.db
 .DS_Store

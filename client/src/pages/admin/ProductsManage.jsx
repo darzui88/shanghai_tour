@@ -8,6 +8,7 @@ import {
   adminUploadImages,
   adminDeleteImage
 } from '../../services/api';
+import ProductRichTextEditor from '../../components/admin/ProductRichTextEditor';
 import './Manage.css';
 
 const ProductsManage = () => {
@@ -26,6 +27,8 @@ const ProductsManage = () => {
     descriptionCN: '',
     category: 'souvenir',
     price: 0,
+    stock: 0,
+    variants: [],
     images: [],
     coverImage: '',
     isAvailable: true
@@ -84,11 +87,68 @@ const ProductsManage = () => {
     }
   };
 
+  // 规格管理
+  const addVariant = () => {
+    setFormData({
+      ...formData,
+      variants: [
+        ...formData.variants,
+        {
+          name: '',
+          price: formData.price || 0,
+          stock: 0,
+          image: ''
+        }
+      ]
+    });
+  };
+
+  const updateVariant = (index, field, value) => {
+    const updated = [...formData.variants];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData({ ...formData, variants: updated });
+  };
+
+  const removeVariant = (index) => {
+    const updated = formData.variants.filter((_, i) => i !== index);
+    setFormData({ ...formData, variants: updated });
+  };
+
+  const handleVariantImageUpload = (index) => {
+    const productId = editingProduct?.id;
+    if (!productId) {
+      alert('请先保存商品，然后为规格上传图片');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        setUploadingImages(true);
+        const response = await adminUploadImages('products', productId, [file]);
+        if (response.data.files && response.data.files.length > 0) {
+          const imageUrl = response.data.files[0].url;
+          updateVariant(index, 'image', imageUrl);
+        }
+      } catch (error) {
+        console.error('Variant image upload error:', error);
+        alert(error.response?.data?.error || '规格图片上传失败');
+      } finally {
+        setUploadingImages(false);
+      }
+    };
+    input.click();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       let productId;
-      if (editingProduct) {
+      if (editingProduct && editingProduct.id) {
         const response = await adminUpdateProduct(editingProduct.id, formData);
         productId = editingProduct.id;
         alert('商品更新成功');
@@ -103,11 +163,11 @@ const ProductsManage = () => {
       
       // 如果产品ID存在且有选中的文件，自动上传
       if (productId && selectedFiles.length > 0) {
-        await handleUploadImages();
+        await handleUploadImages(productId);
       }
       
       // 只有在编辑模式下才关闭表单，新创建时保持打开以便上传图片
-      if (editingProduct) {
+      if (editingProduct && editingProduct.id) {
         setShowForm(false);
         setEditingProduct(null);
         resetForm();
@@ -142,12 +202,21 @@ const ProductsManage = () => {
       descriptionCN: product.descriptionCN || '',
       category: product.category || 'souvenir',
       price: product.price || 0,
+      stock: product.stock ?? 0,
+      variants: Array.isArray(product.variants) ? product.variants : [],
       images: parsedImages,
       coverImage: product.coverImage || (parsedImages.length > 0 ? parsedImages[0] : ''),
       isAvailable: product.isAvailable !== undefined ? product.isAvailable : true
     });
     setShowForm(true);
     setSelectedFiles([]);
+    // 滚动到表单
+    setTimeout(() => {
+      const formElement = document.querySelector('.manage-form');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const resetForm = () => {
@@ -158,6 +227,8 @@ const ProductsManage = () => {
       descriptionCN: '',
       category: 'souvenir',
       price: 0,
+      stock: 0,
+      variants: [],
       images: [],
       coverImage: '',
       isAvailable: true
@@ -174,15 +245,14 @@ const ProductsManage = () => {
     setSelectedFiles(files);
   };
 
-  const handleUploadImages = async () => {
-    if (selectedFiles.length === 0) {
-      alert('请先选择要上传的图片');
+  const handleUploadImages = async (productIdOverride) => {
+    const productId = productIdOverride || editingProduct?.id;
+    if (!productId) {
+      alert('请先保存商品，然后再上传图片');
       return;
     }
 
-    const productId = editingProduct?.id;
-    if (!productId) {
-      alert('请先保存商品，然后再上传图片');
+    if (selectedFiles.length === 0) {
       return;
     }
 
@@ -244,6 +314,16 @@ const ProductsManage = () => {
       ...formData,
       coverImage: imageUrl
     });
+    // 如果正在编辑商品，立即保存封面图片
+    if (editingProduct && editingProduct.id) {
+      adminUpdateProduct(editingProduct.id, { coverImage: imageUrl })
+        .then(() => {
+          console.log('封面图片已更新');
+        })
+        .catch(error => {
+          console.error('更新封面图片失败:', error);
+        });
+    }
   };
 
   if (loading) {
@@ -320,19 +400,20 @@ const ProductsManage = () => {
               <div className="form-row">
                 <div className="form-group">
                   <label>描述 (EN) *</label>
-                  <textarea
+                  <ProductRichTextEditor
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    required
-                    rows="3"
+                    onChange={(value) => setFormData({ ...formData, description: value })}
+                    productId={editingProduct?.id}
+                    type="products"
                   />
                 </div>
                 <div className="form-group">
                   <label>描述 (CN)</label>
-                  <textarea
+                  <ProductRichTextEditor
                     value={formData.descriptionCN}
-                    onChange={(e) => setFormData({ ...formData, descriptionCN: e.target.value })}
-                    rows="3"
+                    onChange={(value) => setFormData({ ...formData, descriptionCN: value })}
+                    productId={editingProduct?.id}
+                    type="products"
                   />
                 </div>
               </div>
@@ -363,13 +444,123 @@ const ProductsManage = () => {
                     step="0.01"
                   />
                 </div>
+                <div className="form-group">
+                  <label>库存 Stock *</label>
+                  <input
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value, 10) || 0 })}
+                    required
+                    min="0"
+                    step="1"
+                  />
+                </div>
+              </div>
+
+              {/* 规格管理 */}
+              <div className="form-group">
+                <label>规格 / Variants</label>
+                <div style={{ marginBottom: '10px' }}>
+                  <button type="button" className="upload-button" onClick={addVariant}>
+                    + 添加规格
+                  </button>
+                  <p style={{ color: '#666', fontSize: '12px', marginTop: '6px' }}>
+                    为每个规格设置名称、价格、库存和规格图片。需先保存商品才能上传规格图片。
+                  </p>
+                </div>
+
+                {formData.variants.length === 0 && (
+                  <div className="empty-state" style={{ padding: '12px 16px' }}>
+                    暂无规格，请点击“添加规格”
+                  </div>
+                )}
+
+                {formData.variants.map((variant, index) => (
+                  <div key={index} className="variant-card">
+                    <div className="variant-header">
+                      <strong>规格 {index + 1}</strong>
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => removeVariant(index)}
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                      >
+                        删除
+                      </button>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>规格名称 *</label>
+                        <input
+                          type="text"
+                          value={variant.name}
+                          onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>价格 *</label>
+                        <input
+                          type="number"
+                          value={variant.price}
+                          onChange={(e) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
+                          required
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>库存 *</label>
+                        <input
+                          type="number"
+                          value={variant.stock}
+                          onChange={(e) => updateVariant(index, 'stock', parseInt(e.target.value, 10) || 0)}
+                          required
+                          min="0"
+                          step="1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>规格图片</label>
+                      <div className="variant-image-row">
+                        {variant.image ? (
+                          <div className="variant-image-preview">
+                            <img src={variant.image} alt={`variant-${index}`} />
+                            <button
+                              type="button"
+                              className="delete-button"
+                              onClick={() => updateVariant(index, 'image', '')}
+                              style={{ marginTop: '6px', padding: '4px 8px', fontSize: '12px' }}
+                            >
+                              移除图片
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="variant-image-placeholder">无图片</div>
+                        )}
+                        <button
+                          type="button"
+                          className="upload-button"
+                          onClick={() => handleVariantImageUpload(index)}
+                          disabled={uploadingImages}
+                          style={{ marginLeft: '12px' }}
+                        >
+                          {uploadingImages ? '上传中...' : '上传规格图片'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="form-group">
                 <label>图片管理 ({formData.images.length}/20)</label>
                 
                 {/* 图片上传区域 */}
-                {editingProduct && editingProduct.id && (
+                {editingProduct && editingProduct.id ? (
                   <div className="image-upload-section">
                     <input
                       type="file"
@@ -382,7 +573,7 @@ const ProductsManage = () => {
                     {selectedFiles.length > 0 && (
                       <button
                         type="button"
-                        onClick={handleUploadImages}
+                        onClick={() => handleUploadImages()}
                         disabled={uploadingImages}
                         className="upload-button"
                       >
@@ -394,7 +585,16 @@ const ProductsManage = () => {
                         已达到最大图片数量（20张）
                       </p>
                     )}
+                    {formData.images.length === 0 && (
+                      <p style={{ color: '#666', fontSize: '12px', marginTop: '8px' }}>
+                        提示：选择图片后点击上传按钮，或直接在描述编辑器中粘贴图片
+                      </p>
+                    )}
                   </div>
+                ) : (
+                  <p style={{ color: '#856404', fontSize: '12px', padding: '10px', background: '#fff3cd', borderRadius: '4px' }}>
+                    请先保存商品基本信息，然后可以上传图片或直接在描述编辑器中粘贴图片
+                  </p>
                 )}
 
                 {/* 已上传的图片列表 */}
@@ -483,6 +683,8 @@ const ProductsManage = () => {
               <th>名称</th>
               <th>分类</th>
               <th>价格</th>
+              <th>库存</th>
+              <th>规格数</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
@@ -494,6 +696,8 @@ const ProductsManage = () => {
                 <td>{product.name}</td>
                 <td>{product.category}</td>
                 <td>¥{product.price}</td>
+                <td>{product.stock ?? 0}</td>
+                <td>{Array.isArray(product.variants) ? product.variants.length : 0}</td>
                 <td>{product.isAvailable ? '✓ 上架' : '✗ 下架'}</td>
                 <td>
                   <button onClick={() => handleEdit(product)} className="edit-button">编辑</button>

@@ -64,9 +64,31 @@ export const getGuides = (params) => api.get('/guides', { params })
 export const getGuide = (id) => api.get(`/guides/${id}`)
 
 // Orders API
-export const createOrder = (orderData) => api.post('/orders', orderData)
+export const createOrder = (orderData) => {
+  const token = localStorage.getItem('userToken');
+  const config = {};
+  if (token) {
+    config.headers = { Authorization: `Bearer ${token}` };
+  }
+  return api.post('/orders', orderData, config);
+}
 export const getOrder = (id) => api.get(`/orders/${id}`)
 export const getUserOrders = (email) => api.get(`/orders/user/${email}`)
+export const getMyOrders = (params) => {
+  const token = localStorage.getItem('userToken');
+  if (!token) {
+    return Promise.reject(new Error('User not logged in'));
+  }
+  return api.get('/orders/my-orders', {
+    params,
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+export const payOrder = (id) => {
+  const token = localStorage.getItem('userToken');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  return api.post(`/orders/${id}/pay`, {}, { headers });
+}
 
 // Admin API
 const getAdminToken = () => localStorage.getItem('adminToken');
@@ -85,6 +107,38 @@ const getAdminApiBaseUrl = () => {
   }
   return 'http://localhost:5000/api';
 };
+
+// User Auth API
+const getUserToken = () => localStorage.getItem('userToken');
+
+// Create authenticated API instance for users
+const userApi = axios.create({
+  baseURL: getAdminApiBaseUrl(),
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add token to user requests
+userApi.interceptors.request.use((config) => {
+  const token = getUserToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return addAntiScrapingHeaders(config);
+}, (error) => {
+  return Promise.reject(error);
+});
+
+export const register = (userData) => api.post('/users/register', userData)
+export const login = (email, password) => api.post('/users/login', { email, password })
+export const verifyUserToken = (token) => api.post('/users/verify', { token })
+export const getUserInfo = () => userApi.get('/users/me')
+export const updateUserInfo = (userData) => userApi.put('/users/me', userData)
+export const updatePassword = (currentPassword, newPassword) => 
+  userApi.put('/users/me/password', { currentPassword, newPassword })
+export const updateAddresses = (addresses, defaultAddressIndex) => 
+  userApi.put('/users/me/addresses', { addresses, defaultAddressIndex })
 
 export const adminApi = axios.create({
   baseURL: getAdminApiBaseUrl(),
@@ -158,6 +212,19 @@ export const adminUploadImages = async (type, id, files) => {
 
 export const adminDeleteImage = (type, id, filepath) => {
   return adminApi.delete(`/upload/${type}/${id}`, { data: { filepath } });
+};
+
+// Admin Orders API
+export const adminGetOrders = (params) => adminApi.get('/orders', { params })
+export const adminGetOrder = (id) => adminApi.get(`/orders/${id}`)
+export const adminUpdateOrderStatus = (id, updateData) => adminApi.patch(`/orders/${id}/status`, updateData)
+export const adminCancelOrder = (id) => adminApi.post(`/orders/${id}/cancel`)
+export const adminShipOrder = (id, shippingData) => adminApi.post(`/orders/${id}/ship`, shippingData)
+export const adminUpdateShippingInfo = (id, shippingData) => adminApi.patch(`/orders/${id}/shipping`, shippingData)
+
+// Admin WeChat Scraper API
+export const scrapeWeChatArticle = (scrapingConfig) => {
+  return adminApi.post('/scrape-wechat', scrapingConfig);
 };
 
 export default api

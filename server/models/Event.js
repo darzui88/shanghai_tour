@@ -58,13 +58,13 @@ const Event = sequelize.define('Event', {
   // 时间信息
   startDate: {
     type: DataTypes.DATE,
-    allowNull: false,
-    comment: '开始日期'
+    allowNull: true,
+    comment: '开始日期（可选）'
   },
   endDate: {
     type: DataTypes.DATE,
-    allowNull: false,
-    comment: '结束日期'
+    allowNull: true,
+    comment: '结束日期（可选）'
   },
   startTime: {
     type: DataTypes.STRING(50),
@@ -75,6 +75,12 @@ const Event = sequelize.define('Event', {
     type: DataTypes.STRING(50),
     allowNull: true,
     comment: '结束时间（如：10:00 PM）'
+  },
+  // 营业时间（Opening Hours）
+  openingHours: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: '营业时间（格式同Location的openingHours）'
   },
   // 价格信息
   price: {

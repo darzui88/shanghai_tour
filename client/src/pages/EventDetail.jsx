@@ -33,6 +33,14 @@ const EventDetail = () => {
           eventData.images = []
         }
       }
+      // 解析openingHours
+      if (eventData.openingHours && typeof eventData.openingHours === 'string') {
+        try {
+          eventData.openingHours = JSON.parse(eventData.openingHours)
+        } catch (e) {
+          eventData.openingHours = null
+        }
+      }
       setEvent(eventData)
       setLoading(false)
     } catch (error) {
@@ -60,14 +68,24 @@ const EventDetail = () => {
   // 生成地图链接URL（支持PC、iPhone、Android）
   const getMapUrl = (venueAddress, city, district) => {
     // 组合地址：城市 + 区 + 具体地址
-    let fullAddress = venueAddress || ''
-    
+    // 如果城市为空，默认使用"上海"
+    const defaultCity = city && city.trim() ? city.trim() : '上海';
     const addressParts = []
-    if (city) addressParts.push(city)
-    if (district) addressParts.push(district)
-    if (venueAddress) addressParts.push(venueAddress)
     
-    fullAddress = addressParts.join(', ')
+    // 确保城市总是包含在内（默认上海）
+    addressParts.push(defaultCity)
+    
+    // 如果有区信息，添加区
+    if (district && district.trim()) {
+      addressParts.push(district.trim())
+    }
+    
+    // 添加具体地址
+    if (venueAddress && venueAddress.trim()) {
+      addressParts.push(venueAddress.trim())
+    }
+    
+    const fullAddress = addressParts.join(', ')
     
     if (!fullAddress.trim()) return null
     
@@ -99,6 +117,19 @@ const EventDetail = () => {
     if (mapUrl) {
       window.open(mapUrl, '_blank', 'noopener,noreferrer')
     }
+  }
+
+  // 获取当前是星期几（小写，匹配数据库格式：monday, tuesday, etc.）
+  const getCurrentDay = () => {
+    const today = new Date()
+    const dayIndex = today.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    return days[dayIndex]
+  }
+
+  // 判断是否是当前日期
+  const isCurrentDay = (day) => {
+    return day.toLowerCase() === getCurrentDay()
   }
 
   if (loading) {
@@ -174,7 +205,43 @@ const EventDetail = () => {
                       {event.endTime && <p>Time: {event.endTime}</p>}
                     </>
                   )}
+                  {!event.startDate && !event.endDate && (
+                    <p style={{ color: '#999' }}>Date TBA</p>
+                  )}
                 </div>
+
+              {/* Opening Hours */}
+              {event.openingHours && typeof event.openingHours === 'object' && (
+                <div className="info-section">
+                  <h3>🕐 Opening Hours</h3>
+                  <div className="opening-hours">
+                    {event.openingHours.note ? (
+                      // 如果是note格式，直接显示
+                      <p>{event.openingHours.note}</p>
+                    ) : (
+                      // 如果是按天分别的格式，显示每一天
+                      Object.entries(event.openingHours)
+                        .sort(([dayA], [dayB]) => {
+                          const order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                          return order.indexOf(dayA) - order.indexOf(dayB);
+                        })
+                        .map(([day, hours]) => hours && hours.trim() ? (
+                          <div 
+                            key={day} 
+                            className={`hours-row ${isCurrentDay(day) ? 'current-day' : ''}`}
+                          >
+                            <span className="day">
+                              {day.charAt(0).toUpperCase() + day.slice(1)}:
+                              {isCurrentDay(day) && <span className="today-badge">Today</span>}
+                            </span>
+                            <span>{hours || 'Closed'}</span>
+                          </div>
+                        ) : null)
+                        .filter(item => item !== null)
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Address信息单独显示，可点击打开地图 */}
               {event.venueAddress && (

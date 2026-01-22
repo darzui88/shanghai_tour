@@ -101,3 +101,21 @@
     padding: 0.5rem 0;
   }
 }
+
+.navbar-logout {
+  background: transparent;
+  border: 1px solid white;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.navbar-logout:hover {
+  background: white;
+  color: #1d3557;
+}

@@ -32,6 +32,11 @@ const Product = sequelize.define('Product', {
     type: DataTypes.JSON,
     defaultValue: []
   },
+  variants: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    comment: '商品规格列表，如[{name,color,image,price,stock}]'
+  },
   coverImage: {
     type: DataTypes.STRING(500),
     allowNull: true,

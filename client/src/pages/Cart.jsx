@@ -37,23 +37,34 @@ const Cart = () => {
     }
   }
 
-  const updateQuantity = (productId, newQuantity) => {
+  const updateQuantity = (productId, variantName, newQuantity) => {
     if (newQuantity < 1) {
-      removeItem(productId)
+      removeItem(productId, variantName)
       return
     }
 
-    const updatedCart = cartItems.map(item => 
-      item.product === productId 
+    const updatedCart = cartItems.map(item => {
+      const matchesProduct = item.product === productId
+      const matchesVariant = variantName 
+        ? (item.variantName === variantName)
+        : (!item.variantName)
+      
+      return (matchesProduct && matchesVariant)
         ? { ...item, quantity: newQuantity }
         : item
-    )
+    })
 
     updateCart(updatedCart)
   }
 
-  const removeItem = (productId) => {
-    const updatedCart = cartItems.filter(item => item.product !== productId)
+  const removeItem = (productId, variantName) => {
+    const updatedCart = cartItems.filter(item => {
+      const matchesProduct = item.product === productId
+      const matchesVariant = variantName 
+        ? (item.variantName === variantName)
+        : (!item.variantName)
+      return !(matchesProduct && matchesVariant)
+    })
     updateCart(updatedCart)
   }
 
@@ -65,7 +76,8 @@ const Cart = () => {
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      const productPrice = item.productDetails?.price || item.price || 0
+      // 如果有规格，使用规格价格，否则使用商品价格
+      const productPrice = item.variant?.price || item.price || item.productDetails?.price || 0
       return total + (productPrice * item.quantity)
     }, 0)
   }
@@ -100,13 +112,16 @@ const Cart = () => {
 
           <div className="cart-container">
             <div className="cart-items">
-              {cartItems.map((item) => {
+              {cartItems.map((item, index) => {
                 const product = item.productDetails
-                const price = product?.price || item.price || 0
+                // 如果有规格，使用规格价格，否则使用商品价格，并确保为数字
+                const price = parseFloat(item.variant?.price ?? item.price ?? product?.price ?? 0) || 0
                 const total = price * item.quantity
+                // 使用索引和规格名称作为唯一key
+                const itemKey = item.variantName ? `${item.product}_${item.variantName}_${index}` : `${item.product}_${index}`
 
                 return (
-                  <div key={item.product} className="cart-item card">
+                  <div key={itemKey} className="cart-item card">
                     <div className="cart-item-image">
                       <img 
                         src={item.image || (product?.images?.[0]?.url || product?.images?.[0]) || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'} 
@@ -127,19 +142,22 @@ const Cart = () => {
                           {item.name || product?.name || 'Product'}
                         </Link>
                       </h3>
-                      <p className="cart-item-price">¥{price} each</p>
+                      {item.variantName && (
+                        <p className="cart-item-variant">Variant: {item.variantName}</p>
+                      )}
+                      <p className="cart-item-price">¥{price.toFixed(2)} each</p>
                     </div>
 
                     <div className="cart-item-quantity">
                       <button 
-                        onClick={() => updateQuantity(item.product, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.product, item.variantName, item.quantity - 1)}
                         className="quantity-btn"
                       >
                         -
                       </button>
                       <span className="quantity">{item.quantity}</span>
                       <button 
-                        onClick={() => updateQuantity(item.product, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.product, item.variantName, item.quantity + 1)}
                         className="quantity-btn"
                       >
                         +
@@ -151,7 +169,7 @@ const Cart = () => {
                     </div>
 
                     <button 
-                      onClick={() => removeItem(item.product)}
+                      onClick={() => removeItem(item.product, item.variantName)}
                       className="remove-btn"
                       aria-label="Remove item"
                     >

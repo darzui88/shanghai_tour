@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createOrder, getProduct } from '../services/api'
+import { createOrder, getProduct, getUserInfo } from '../services/api'
 import './Checkout.css'
 
 const Checkout = () => {
@@ -20,7 +20,45 @@ const Checkout = () => {
 
   useEffect(() => {
     loadCart()
+    loadUserInfo()
   }, [])
+
+  const loadUserInfo = async () => {
+    const token = localStorage.getItem('userToken')
+    if (token) {
+      try {
+        const response = await getUserInfo()
+        if (response.data.success && response.data.user) {
+          const user = response.data.user
+          // 如果有默认地址，自动填充
+          const defaultAddress = user.addresses && user.addresses.length > 0
+            ? user.addresses[user.defaultAddressIndex || 0]
+            : null
+          
+          if (defaultAddress) {
+            setFormData(prev => ({
+              ...prev,
+              name: user.name || defaultAddress.name || '',
+              email: user.email || '',
+              phone: user.phone || defaultAddress.phone || '',
+              address: defaultAddress.address || '',
+              recipient: defaultAddress.name || user.name || ''
+            }))
+          } else {
+            // 使用用户基本信息
+            setFormData(prev => ({
+              ...prev,
+              name: user.name || '',
+              email: user.email || '',
+              phone: user.phone || ''
+            }))
+          }
+        }
+      } catch (error) {
+        // 忽略错误，继续作为游客
+      }
+    }
+  }
 
   const loadCart = async () => {
     try {
@@ -94,27 +132,63 @@ const Checkout = () => {
     setSubmitting(true)
 
     try {
+      // Validate cart items before submitting
+      if (!cartItems || cartItems.length === 0) {
+        alert('Your cart is empty. Please add items to your cart first.')
+        setSubmitting(false)
+        navigate('/cart')
+        return
+      }
+
+      // Filter out items that failed to load
+      const validItems = cartItems.filter(item => {
+        if (!item.product) {
+          console.warn('Item missing product ID:', item)
+          return false
+        }
+        if (!item.quantity || item.quantity < 1) {
+          console.warn('Item has invalid quantity:', item)
+          return false
+        }
+        return true
+      })
+
+      if (validItems.length === 0) {
+        alert('No valid items in cart. Please add items to your cart.')
+        setSubmitting(false)
+        navigate('/cart')
+        return
+      }
+
       const orderData = {
         user: {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim() || undefined,
+          address: formData.address.trim()
         },
-        items: cartItems.map(item => ({
-          product: item.product,
-          quantity: item.quantity
+        items: validItems.map(item => ({
+          product: parseInt(item.product) || item.product, // Ensure it's a number if possible
+          quantity: parseInt(item.quantity) || 1,
+          variantName: item.variantName || item.variant?.name,
+          variantPrice: item.variant?.price || item.price || undefined,
+          variantImage: item.variant?.image || undefined
         })),
         shipping: {
           method: formData.shippingMethod,
-          fee: formData.shippingMethod === 'express' ? formData.expressFee : 0,
-          address: formData.address,
-          recipient: formData.recipient || formData.name,
-          phone: formData.phone
+          fee: formData.shippingMethod === 'express' ? parseFloat(formData.expressFee) || 0 : 0,
+          address: formData.address.trim(),
+          recipient: (formData.recipient || formData.name).trim(),
+          phone: formData.phone.trim() || undefined
         }
       }
 
+      console.log('Submitting order:', orderData)
+      const token = localStorage.getItem('userToken')
+      console.log('User token:', token ? 'Present' : 'Not present')
+      
       const response = await createOrder(orderData)
+      console.log('Order created:', response.data)
       
       // Clear cart
       localStorage.removeItem('cart')
@@ -122,11 +196,23 @@ const Checkout = () => {
       // Show success message
       alert(`Order placed successfully! Order number: ${response.data.orderNumber}`)
       
-      // Navigate to home or order confirmation page
-      navigate('/')
+      // Navigate to payment page
+      if (response.data.id) {
+        navigate(`/pay/${response.data.id}`)
+      } else if (token) {
+        navigate('/profile?tab=orders')
+      } else {
+        navigate('/')
+      }
     } catch (error) {
       console.error('Error creating order:', error)
-      alert('Failed to place order. Please try again.')
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to place order. Please try again.'
+      console.error('Error details:', {
+        message: errorMessage,
+        status: error.response?.status,
+        data: error.response?.data
+      })
+      alert(`Failed to place order: ${errorMessage}`)
       setSubmitting(false)
     }
   }

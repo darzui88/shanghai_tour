@@ -12,6 +12,11 @@ const Order = sequelize.define('Order', {
     unique: true,
     allowNull: false
   },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '用户ID（如果用户已登录）'
+  },
   user: {
     type: DataTypes.JSON,
     allowNull: false
@@ -36,6 +41,11 @@ const Order = sequelize.define('Order', {
     type: DataTypes.ENUM('pending', 'paid', 'failed', 'refunded'),
     defaultValue: 'pending'
   },
+  paymentDeadline: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: '支付截止时间（订单创建后10分钟）'
+  },
   taobaoOrderIds: {
     type: DataTypes.JSON,
     defaultValue: []
@@ -53,10 +63,21 @@ const Order = sequelize.define('Order', {
   timestamps: true,
   underscored: false,
   hooks: {
-    beforeCreate: async (order) => {
+    beforeCreate: async (order, options) => {
       if (!order.orderNumber) {
-        const count = await Order.count();
-        order.orderNumber = `STG${Date.now()}${count.toString().padStart(6, '0')}`;
+        try {
+          // Generate unique order number
+          const timestamp = Date.now();
+          const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+          order.orderNumber = `STG${timestamp}${random}`;
+          console.log(`Generated order number: ${order.orderNumber}`);
+        } catch (error) {
+          console.error('Error generating order number:', error);
+          // Fallback: use timestamp + random if count fails
+          const timestamp = Date.now();
+          const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+          order.orderNumber = `STG${timestamp}${random}`;
+        }
       }
     }
   }

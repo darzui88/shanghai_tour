@@ -10,36 +10,92 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
   const [shippingMethod, setShippingMethod] = useState('standard')
+  const [selectedVariant, setSelectedVariant] = useState(null)
 
   useEffect(() => {
+    let isMounted = true
+    
+    const fetchProduct = async () => {
+      try {
+        setLoading(true)
+        const response = await getProduct(id)
+        
+        // 检查组件是否仍然挂载
+        if (!isMounted) return
+        
+        const productData = response.data
+        setProduct(productData)
+        
+        // 如果有规格，默认选择第一个有库存的规格
+        if (productData.variants && productData.variants.length > 0) {
+          const firstAvailableVariant = productData.variants.find(v => v.stock > 0) || productData.variants[0]
+          setSelectedVariant(firstAvailableVariant)
+        }
+        
+        setLoading(false)
+      } catch (error) {
+        // 检查组件是否仍然挂载
+        if (!isMounted) return
+        
+        console.error('Error fetching product:', error)
+        setLoading(false)
+        // 可以设置错误状态，但这里我们保持简单，只记录错误
+      }
+    }
+    
     fetchProduct()
+    
+    // 清理函数：组件卸载时设置标志
+    return () => {
+      isMounted = false
+    }
   }, [id])
 
-  const fetchProduct = async () => {
-    try {
-      setLoading(true)
-      const response = await getProduct(id)
-      setProduct(response.data)
-      setLoading(false)
-    } catch (error) {
-      console.error('Error fetching product:', error)
-      setLoading(false)
-    }
-  }
-
   const addToCart = () => {
+    // 检查是否有规格且已选择
+    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+      alert('Please select a variant')
+      return
+    }
+
+    // 检查库存
+    const currentStock = selectedVariant ? selectedVariant.stock : product.stock
+    if (quantity > currentStock) {
+      alert(`Only ${currentStock} items available in stock`)
+      return
+    }
+
     const cart = JSON.parse(localStorage.getItem('cart') || '[]')
-    const existingItem = cart.find(item => item.product === id)
+    
+    // 构建购物车项的唯一标识（包含规格信息）
+    const cartItemKey = selectedVariant 
+      ? `${id}_${selectedVariant.name}` 
+      : id
+    
+    const existingItem = cart.find(item => {
+      if (selectedVariant) {
+        return item.product === id && item.variantName === selectedVariant.name
+      } else {
+        return item.product === id && !item.variantName
+      }
+    })
+
+    const itemPrice = selectedVariant ? selectedVariant.price : product.price
+    const itemImage = selectedVariant?.image 
+      ? selectedVariant.image 
+      : (product.images?.[0]?.url || product.images?.[0] || product.coverImage)
 
     if (existingItem) {
       existingItem.quantity += quantity
     } else {
       cart.push({
         product: id,
+        variantName: selectedVariant?.name,
+        variant: selectedVariant,
         quantity,
-        price: product.price,
+        price: itemPrice,
         name: product.name,
-        image: product.images?.[0]?.url || product.images?.[0]
+        image: itemImage
       })
     }
 
@@ -67,7 +123,14 @@ const ProductDetail = () => {
     )
   }
 
-  const totalPrice = (parseFloat(product.price) * quantity) + 
+  // 获取当前价格（如果有规格则使用规格价格，否则使用商品价格）
+  const currentPrice = selectedVariant ? parseFloat(selectedVariant.price) : parseFloat(product.price)
+  const currentStock = selectedVariant ? selectedVariant.stock : product.stock
+  const displayImage = selectedVariant?.image 
+    ? selectedVariant.image 
+    : (product.coverImage || (product.images?.[0]?.url || product.images?.[0]))
+
+  const totalPrice = (currentPrice * quantity) + 
     (shippingMethod === 'express' ? (parseFloat(product.expressDeliveryFee) || 0) : 0)
 
   return (
@@ -77,9 +140,9 @@ const ProductDetail = () => {
         
         <div className="product-detail">
           <div className="product-images">
-            {product.images && product.images.length > 0 ? (
+            {displayImage ? (
               <img 
-                src={typeof product.images[0] === 'string' ? product.images[0] : (product.images[0].url || product.images[0])} 
+                src={displayImage} 
                 alt={product.name}
                 onError={(e) => {
                   e.target.style.display = 'none'
@@ -99,17 +162,64 @@ const ProductDetail = () => {
             {product.nameCN && <p className="chinese-name">{product.nameCN}</p>}
             
             <div className="price-section">
-              <span className="price">¥{parseFloat(product.price).toFixed(2)}</span>
-              {product.originalPrice && parseFloat(product.originalPrice) > parseFloat(product.price) && (
+              <span className="price">¥{currentPrice.toFixed(2)}</span>
+              {product.originalPrice && parseFloat(product.originalPrice) > currentPrice && (
                 <span className="original-price">¥{parseFloat(product.originalPrice).toFixed(2)}</span>
               )}
             </div>
 
+            {/* 规格选择 */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="variant-selector">
+                <label>Select Variant:</label>
+                <div className="variants-grid">
+                  {product.variants.map((variant, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={`variant-option ${selectedVariant?.name === variant.name ? 'selected' : ''} ${variant.stock <= 0 ? 'out-of-stock' : ''}`}
+                      onClick={() => {
+                        if (variant.stock > 0) {
+                          setSelectedVariant(variant)
+                          setQuantity(1) // 切换规格时重置数量
+                        }
+                      }}
+                      disabled={variant.stock <= 0}
+                    >
+                      {variant.image && (
+                        <img src={variant.image} alt={variant.name} className="variant-image" />
+                      )}
+                      <div className="variant-info">
+                        <span className="variant-name">{variant.name}</span>
+                        <span className="variant-price">¥{parseFloat(variant.price).toFixed(2)}</span>
+                        <span className={`variant-stock ${variant.stock <= 0 ? 'stock-zero' : ''}`}>
+                          {variant.stock > 0 ? `Stock: ${variant.stock}` : 'Out of Stock'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 库存显示 */}
+            <div className="stock-info">
+              <span className={currentStock > 0 ? 'in-stock' : 'out-of-stock'}>
+                {currentStock > 0 ? `In Stock (${currentStock} available)` : 'Out of Stock'}
+              </span>
+            </div>
+
             <div className="description">
               <h3>Description</h3>
-              <p>{product.description}</p>
+              <div 
+                className="description-content"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
               {product.descriptionCN && (
-                <p className="chinese-description">{product.descriptionCN}</p>
+                <div 
+                  className="chinese-description description-content"
+                  dangerouslySetInnerHTML={{ __html: product.descriptionCN }}
+                />
               )}
             </div>
 
@@ -130,17 +240,22 @@ const ProductDetail = () => {
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="quantity-btn"
+                    disabled={quantity <= 1}
                   >
                     -
                   </button>
                   <span className="quantity">{quantity}</span>
                   <button 
-                    onClick={() => setQuantity(quantity + 1)}
+                    onClick={() => setQuantity(Math.min(currentStock, quantity + 1))}
                     className="quantity-btn"
+                    disabled={quantity >= currentStock}
                   >
                     +
                   </button>
                 </div>
+                {currentStock > 0 && (
+                  <p className="quantity-hint">Max: {currentStock}</p>
+                )}
               </div>
 
               {product.expressDeliveryAvailable && (
@@ -165,16 +280,14 @@ const ProductDetail = () => {
                 onClick={addToCart} 
                 className="btn btn-primary"
                 style={{ width: '100%', marginTop: '20px' }}
-                disabled={!product.isAvailable}
+                disabled={!product.isAvailable || currentStock <= 0 || (product.variants && product.variants.length > 0 && !selectedVariant)}
               >
-                {product.isAvailable ? 'Add to Cart' : 'Out of Stock'}
+                {!product.isAvailable || currentStock <= 0 
+                  ? 'Out of Stock' 
+                  : (product.variants && product.variants.length > 0 && !selectedVariant)
+                    ? 'Please Select Variant'
+                    : 'Add to Cart'}
               </button>
-
-              <p className="note">
-                💡 We'll order this item from {product.taobaoUrl ? 'Taobao' : ''}
-                {product.taobaoUrl && product.pinduoduoUrl ? ' or ' : ''}
-                {product.pinduoduoUrl ? 'Pinduoduo' : ''} for you!
-              </p>
             </div>
           </div>
         </div>

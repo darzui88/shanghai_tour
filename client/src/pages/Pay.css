@@ -1,0 +1,95 @@
+.pay-card {
+  max-width: 480px;
+  margin: 40px auto;
+  padding: 30px;
+}
+
+.pay-amount {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e63946;
+  margin: 16px 0;
+}
+
+.pay-error {
+  background: #fee;
+  border: 1px solid #fcc;
+  color: #c33;
+  padding: 12px;
+  border-radius: 4px;
+  margin: 12px 0;
+}
+
+.back-to-orders {
+  display: block;
+  margin-top: 16px;
+  color: #457b9d;
+  text-align: center;
+}
+
+.back-to-orders:hover {
+  color: #356789;
+}
+
+.payment-deadline {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.deadline-countdown {
+  color: #333;
+}
+
+.deadline-countdown strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #457b9d;
+  font-size: 1rem;
+}
+
+.deadline-countdown p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.countdown-timer {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 6px;
+  text-align: center;
+  border: 2px solid #457b9d;
+}
+
+.countdown-timer strong {
+  display: inline;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.timer-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e63946;
+  font-family: monospace;
+  margin-left: 8px;
+}
+
+.deadline-expired {
+  color: #dc3545;
+  text-align: center;
+}
+
+.deadline-expired strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.deadline-expired p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}

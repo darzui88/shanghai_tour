@@ -33,6 +33,15 @@ const EventsManage = () => {
     endDate: '',
     startTime: '',
     endTime: '',
+    openingHours: {
+      monday: '',
+      tuesday: '',
+      wednesday: '',
+      thursday: '',
+      friday: '',
+      saturday: '',
+      sunday: ''
+    },
     price: JSON.stringify({ note: 'Free' }),
     featured: false,
     images: [],
@@ -97,10 +106,91 @@ const EventsManage = () => {
     try {
       const submitData = {
         ...formData,
-        price: typeof formData.price === 'string' ? JSON.parse(formData.price) : formData.price,
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: new Date(formData.endDate).toISOString()
       };
+      
+      // 处理price字段：如果为空或无效，删除
+      if (formData.price && formData.price.trim()) {
+        try {
+          submitData.price = typeof formData.price === 'string' ? JSON.parse(formData.price) : formData.price;
+        } catch (e) {
+          // 如果JSON解析失败，尝试使用默认值
+          submitData.price = { note: formData.price };
+        }
+      } else {
+        delete submitData.price;
+      }
+      
+      // 处理日期字段：只有当日期不为空时才转换，空值则删除
+      if (formData.startDate && formData.startDate.trim()) {
+        try {
+          const date = new Date(formData.startDate);
+          if (!isNaN(date.getTime())) {
+            submitData.startDate = date.toISOString();
+          } else {
+            delete submitData.startDate;
+          }
+        } catch (e) {
+          delete submitData.startDate;
+        }
+      } else {
+        delete submitData.startDate;
+      }
+      
+      if (formData.endDate && formData.endDate.trim()) {
+        try {
+          const date = new Date(formData.endDate);
+          if (!isNaN(date.getTime())) {
+            submitData.endDate = date.toISOString();
+          } else {
+            delete submitData.endDate;
+          }
+        } catch (e) {
+          delete submitData.endDate;
+        }
+      } else {
+        delete submitData.endDate;
+      }
+      
+      // 处理openingHours：清理空值
+      if (formData.openingHours) {
+        const cleanedHours = {};
+        Object.entries(formData.openingHours).forEach(([day, hours]) => {
+          if (hours && hours.trim()) {
+            cleanedHours[day] = hours.trim();
+          }
+        });
+        // 如果至少有一个非空值，则包含openingHours
+        if (Object.keys(cleanedHours).length > 0) {
+          submitData.openingHours = cleanedHours;
+        } else {
+          delete submitData.openingHours;
+        }
+      }
+      
+      // 清理其他非必填字段的空值
+      const nonRequiredFields = [
+        'titleCN', 'descriptionCN', 'venueName', 'venueAddress', 
+        'city', 'district', 'startTime', 'endTime', 'listImage'
+      ];
+      
+      nonRequiredFields.forEach(field => {
+        if (submitData[field] === '' || submitData[field] === null || submitData[field] === undefined) {
+          delete submitData[field];
+        }
+      });
+      
+      // 处理images数组：如果为空数组，删除
+      if (submitData.images && Array.isArray(submitData.images) && submitData.images.length === 0) {
+        delete submitData.images;
+      }
+      
+      // 如果listImage不在images中，也要删除
+      if (submitData.listImage && submitData.images && !submitData.images.includes(submitData.listImage)) {
+        submitData.listImage = submitData.images[0] || '';
+        if (!submitData.listImage) {
+          delete submitData.listImage;
+        }
+      }
 
       let eventId;
       if (editingEvent) {
@@ -113,16 +203,57 @@ const EventsManage = () => {
         if (eventId) {
           setEditingEvent({ id: eventId });
         }
-        alert('活动创建成功，现在可以上传图片了');
       }
 
       // 如果活动ID存在且有选中的文件，自动上传
       if (eventId && selectedFiles.length > 0) {
-        await handleUploadImages();
+        try {
+          setUploadingImages(true);
+          const response = await adminUploadImages('events', eventId, selectedFiles);
+          
+          const newImages = response.data.files.map(f => f.url);
+          const updatedImages = [...(submitData.images || []), ...newImages];
+          
+          // 更新活动，添加新上传的图片
+          await adminUpdateEvent(eventId, {
+            images: updatedImages,
+            listImage: submitData.listImage || newImages[0] || (submitData.listImage || '')
+          });
+          
+          // 更新表单状态
+          setFormData({
+            ...formData,
+            images: updatedImages,
+            listImage: submitData.listImage || newImages[0] || formData.listImage
+          });
+          
+          // 清空已上传的文件
+          selectedFiles.forEach(file => {
+            URL.revokeObjectURL(URL.createObjectURL(file));
+          });
+          setSelectedFiles([]);
+          
+          if (!editingEvent) {
+            alert(`活动创建成功，并已上传 ${newImages.length} 张图片`);
+          } else {
+            alert(`活动更新成功，并已上传 ${newImages.length} 张图片`);
+          }
+        } catch (error) {
+          console.error('Upload images error:', error);
+          const action = editingEvent ? '更新' : '创建';
+          alert(`活动${action}成功，但图片上传失败：${error.response?.data?.error || error.message}`);
+        } finally {
+          setUploadingImages(false);
+        }
+      } else {
+        if (!editingEvent) {
+          alert('活动创建成功');
+        }
       }
 
-      // 只有在编辑模式下才关闭表单
-      if (editingEvent && editingEvent.id) {
+      // 只有在编辑模式下且没有待上传图片时才关闭表单
+      const shouldClose = editingEvent?.id && selectedFiles.length === 0 && !uploadingImages;
+      if (shouldClose) {
         setShowForm(false);
         setEditingEvent(null);
         resetForm();
@@ -151,6 +282,29 @@ const EventsManage = () => {
     setEditingEvent(event);
     const priceStr = typeof event.price === 'string' ? event.price : JSON.stringify(event.price || { note: 'Free' });
     const parsedImages = Array.isArray(event.images) ? event.images : (typeof event.images === 'string' ? JSON.parse(event.images || '[]') : []);
+    
+    // 解析openingHours
+    let parsedOpeningHours = {
+      monday: '',
+      tuesday: '',
+      wednesday: '',
+      thursday: '',
+      friday: '',
+      saturday: '',
+      sunday: ''
+    };
+    if (event.openingHours) {
+      if (typeof event.openingHours === 'string') {
+        try {
+          parsedOpeningHours = { ...parsedOpeningHours, ...JSON.parse(event.openingHours) };
+        } catch (e) {
+          console.error('Error parsing openingHours:', e);
+        }
+      } else if (typeof event.openingHours === 'object') {
+        parsedOpeningHours = { ...parsedOpeningHours, ...event.openingHours };
+      }
+    }
+    
     setFormData({
       title: event.title || '',
       titleCN: event.titleCN || '',
@@ -165,6 +319,7 @@ const EventsManage = () => {
       endDate: event.endDate ? event.endDate.split('T')[0] : '',
       startTime: event.startTime || '',
       endTime: event.endTime || '',
+      openingHours: parsedOpeningHours,
       price: priceStr,
       featured: event.featured || false,
       images: parsedImages,
@@ -175,6 +330,11 @@ const EventsManage = () => {
   };
 
   const resetForm = () => {
+    // 释放所有预览图片的URL
+    selectedFiles.forEach(file => {
+      URL.revokeObjectURL(URL.createObjectURL(file));
+    });
+    
     setFormData({
       title: '',
       titleCN: '',
@@ -189,6 +349,15 @@ const EventsManage = () => {
       endDate: '',
       startTime: '',
       endTime: '',
+      openingHours: {
+        monday: '',
+        tuesday: '',
+        wednesday: '',
+        thursday: '',
+        friday: '',
+        saturday: '',
+        sunday: ''
+      },
       price: JSON.stringify({ note: 'Free' }),
       featured: false,
       images: [],
@@ -199,11 +368,30 @@ const EventsManage = () => {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length + formData.images.length > 20) {
-      alert('最多只能上传20张图片');
+    const totalImages = formData.images.length + selectedFiles.length + files.length;
+    
+    if (totalImages > 20) {
+      alert(`最多只能上传20张图片。当前已有 ${formData.images.length} 张，已选择 ${selectedFiles.length} 张，本次选择 ${files.length} 张`);
       return;
     }
-    setSelectedFiles(files);
+    
+    // 验证文件类型
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      alert('只能上传图片文件');
+      return;
+    }
+    
+    // 验证文件大小（例如限制为5MB）
+    const largeFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (largeFiles.length > 0) {
+      alert('图片文件大小不能超过5MB');
+      return;
+    }
+    
+    setSelectedFiles([...selectedFiles, ...files]);
+    // 清空input的值，允许重复选择同一文件
+    e.target.value = '';
   };
 
   const handleUploadImages = async () => {
@@ -212,6 +400,7 @@ const EventsManage = () => {
       return;
     }
 
+    // 使用editingEvent.id或者从表单状态中获取ID
     const eventId = editingEvent?.id;
     if (!eventId) {
       alert('请先保存活动，然后再上传图片');
@@ -223,14 +412,19 @@ const EventsManage = () => {
       const response = await adminUploadImages('events', eventId, selectedFiles);
       
       const newImages = response.data.files.map(f => f.url);
+      const updatedImages = [...formData.images, ...newImages];
+      
       setFormData({
         ...formData,
-        images: [...formData.images, ...newImages],
+        images: updatedImages,
         listImage: formData.listImage || newImages[0]
       });
       
       setSelectedFiles([]);
       alert(`成功上传 ${newImages.length} 张图片`);
+      
+      // 刷新活动列表以显示新图片
+      await fetchEvents();
     } catch (error) {
       console.error('Upload error:', error);
       alert(error.response?.data?.error || '上传失败');
@@ -243,23 +437,37 @@ const EventsManage = () => {
     if (!window.confirm('确定要删除这张图片吗？')) return;
 
     try {
+      const eventId = editingEvent?.id;
       const updatedImages = formData.images.filter(img => img !== imageUrl);
       const updatedListImage = formData.listImage === imageUrl ? (updatedImages[0] || '') : formData.listImage;
       
-      setFormData({
+      // 先更新表单状态
+      const updatedFormData = {
         ...formData,
         images: updatedImages,
         listImage: updatedListImage
-      });
+      };
+      setFormData(updatedFormData);
 
-      if (editingEvent?.id) {
+      // 如果有活动ID，删除服务器上的文件并更新数据库
+      if (eventId) {
         try {
           const filepath = imageUrl.split('/uploads/')[1];
           if (filepath) {
-            await adminDeleteImage('events', editingEvent.id, `uploads/${filepath}`);
+            await adminDeleteImage('events', eventId, `uploads/${filepath}`);
           }
+          
+          // 更新活动数据
+          await adminUpdateEvent(eventId, {
+            images: updatedImages,
+            listImage: updatedListImage
+          });
+          
+          // 刷新活动列表
+          await fetchEvents();
         } catch (error) {
           console.error('Delete file error:', error);
+          alert('删除服务器文件失败，但已从表单中移除');
         }
       }
     } catch (error) {
@@ -268,11 +476,28 @@ const EventsManage = () => {
     }
   };
 
-  const handleSetListImage = (imageUrl) => {
+  const handleSetListImage = async (imageUrl) => {
+    const eventId = editingEvent?.id;
+    
+    // 先更新表单状态
     setFormData({
       ...formData,
       listImage: imageUrl
     });
+    
+    // 如果有活动ID，更新数据库
+    if (eventId) {
+      try {
+        await adminUpdateEvent(eventId, {
+          listImage: imageUrl
+        });
+        // 刷新活动列表
+        await fetchEvents();
+      } catch (error) {
+        console.error('Update cover image error:', error);
+        alert('更新封面图片失败');
+      }
+    }
   };
 
   if (loading) {
@@ -437,21 +662,19 @@ const EventsManage = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>开始日期 *</label>
+                  <label>开始日期</label>
                   <input
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
                   />
                 </div>
                 <div className="form-group">
-                  <label>结束日期 *</label>
+                  <label>结束日期</label>
                   <input
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    required
                   />
                 </div>
               </div>
@@ -478,6 +701,35 @@ const EventsManage = () => {
               </div>
 
               <div className="form-group">
+                <label>营业时间 (Opening Hours)</label>
+                <div className="opening-hours-form">
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                    <div key={day} className="form-row" style={{ marginBottom: '8px' }}>
+                      <label style={{ minWidth: '100px', textTransform: 'capitalize' }}>
+                        {day.charAt(0).toUpperCase() + day.slice(1)}:
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.openingHours[day] || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          openingHours: {
+                            ...formData.openingHours,
+                            [day]: e.target.value
+                          }
+                        })}
+                        placeholder="e.g. 09:00 - 21:00 or Closed"
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <small className="form-hint">
+                  格式：09:00 - 21:00 或 Closed（留空表示不显示）
+                </small>
+              </div>
+
+              <div className="form-group">
                 <label>价格信息 (JSON)</label>
                 <textarea
                   value={formData.price}
@@ -488,34 +740,84 @@ const EventsManage = () => {
               </div>
 
               <div className="form-group">
-                <label>图片管理 ({formData.images.length}/20)</label>
+                <label>图片管理 ({formData.images.length + selectedFiles.length}/20)</label>
                 
-                {editingEvent && editingEvent.id && (
-                  <div className="image-upload-section">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      disabled={uploadingImages || formData.images.length >= 20}
-                      style={{ marginBottom: '10px' }}
-                    />
-                    {selectedFiles.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleUploadImages}
-                        disabled={uploadingImages}
-                        className="upload-button"
-                      >
-                        {uploadingImages ? '上传中...' : `上传 ${selectedFiles.length} 张图片`}
-                      </button>
-                    )}
-                    {formData.images.length >= 20 && (
-                      <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '8px' }}>
-                        已达到最大图片数量（20张）
+                {/* 上传图片功能 - 总是显示 */}
+                <div className="image-upload-section">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    disabled={uploadingImages || (formData.images.length + selectedFiles.length) >= 20}
+                    style={{ marginBottom: '10px' }}
+                  />
+                  {selectedFiles.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <p style={{ color: '#666', fontSize: '12px', margin: '5px 0' }}>
+                        已选择 {selectedFiles.length} 张图片，将在保存活动时自动上传
                       </p>
-                    )}
-                  </div>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {selectedFiles.map((file, index) => (
+                          <div key={index} style={{ position: 'relative', width: '80px', height: '80px' }}>
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`Preview ${index + 1}`}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newFiles = selectedFiles.filter((_, i) => i !== index);
+                                setSelectedFiles(newFiles);
+                                // 释放URL对象
+                                URL.revokeObjectURL(URL.createObjectURL(file));
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '-8px',
+                                background: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(formData.images.length + selectedFiles.length) >= 20 && (
+                    <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '8px' }}>
+                      已达到最大图片数量（20张）
+                    </p>
+                  )}
+                </div>
+                
+                {/* 如果正在编辑且有活动ID，显示立即上传按钮 */}
+                {editingEvent?.id && selectedFiles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUploadImages}
+                    disabled={uploadingImages}
+                    className="upload-button"
+                    style={{ marginTop: '10px' }}
+                  >
+                    {uploadingImages ? '上传中...' : `立即上传 ${selectedFiles.length} 张图片`}
+                  </button>
                 )}
 
                 {formData.images.length > 0 && (
@@ -602,7 +904,7 @@ const EventsManage = () => {
                 <td>{event.title}</td>
                 <td>{event.category}</td>
                 <td>{event.venueName || '-'}</td>
-                <td>{new Date(event.startDate).toLocaleDateString()}</td>
+                <td>{event.startDate ? new Date(event.startDate).toLocaleDateString() : 'TBA'}</td>
                 <td>
                   <button onClick={() => handleEdit(event)} className="edit-button">编辑</button>
                   <button onClick={() => handleDelete(event.id)} className="delete-button">删除</button>

@@ -191,9 +191,15 @@ const Events = () => {
                   <div className="event-info">
                     <div className="event-date">
                       <span className="date-icon">📅</span>
-                      {formatDate(event.startDate)}
-                      {event.endDate && event.startDate !== event.endDate && (
-                        <span> - {formatDate(event.endDate)}</span>
+                      {event.startDate ? (
+                        <>
+                          {formatDate(event.startDate)}
+                          {event.endDate && event.startDate !== event.endDate && (
+                            <span> - {formatDate(event.endDate)}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: '#999' }}>Date TBA</span>
                       )}
                     </div>
                     

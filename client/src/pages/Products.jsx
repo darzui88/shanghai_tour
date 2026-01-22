@@ -182,7 +182,16 @@ const Products = () => {
                   )}
                   <div className="product-info">
                     <h3>{product.name}</h3>
-                    <p className="product-description">{product.description.substring(0, 100)}...</p>
+                    <div 
+                      className="product-description"
+                      dangerouslySetInnerHTML={{ 
+                        __html: product.description 
+                          ? (product.description.length > 100 
+                              ? product.description.substring(0, 100) + '...' 
+                              : product.description)
+                          : ''
+                      }}
+                    />
                     <div className="product-price">
                       <span className="price">¥{product.price}</span>
                       {product.originalPrice && product.originalPrice > product.price && (

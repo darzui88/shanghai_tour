@@ -45,14 +45,22 @@ const LocationDetail = () => {
     if (!location || !location.address) return null;
 
     // 组合地址：城市 + 区 + 具体地址
-    const city = location.city || 'Shanghai';
+    // 如果城市为空，默认使用"上海"
+    const city = location.city || '上海';
     const district = location.district || '';
     const address = location.address || '';
     
     const addressParts = []
-    if (city) addressParts.push(city)
-    if (district) addressParts.push(district)
-    if (address) addressParts.push(address)
+    // 确保城市总是包含在内（默认上海）
+    addressParts.push(city)
+    // 如果有区信息，添加区
+    if (district && district.trim()) {
+      addressParts.push(district.trim())
+    }
+    // 添加具体地址
+    if (address && address.trim()) {
+      addressParts.push(address.trim())
+    }
     
     const fullAddress = addressParts.join(', ')
     

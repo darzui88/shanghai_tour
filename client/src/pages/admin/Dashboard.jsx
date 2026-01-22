@@ -12,6 +12,8 @@ const Dashboard = () => {
           <Link to="/admin/events" className="nav-link">活动管理</Link>
           <Link to="/admin/locations" className="nav-link">地点管理</Link>
           <Link to="/admin/guides" className="nav-link">攻略管理</Link>
+          <Link to="/admin/scraper" className="nav-link">文章抓取</Link>
+          <Link to="/admin/orders" className="nav-link">订单管理</Link>
           <button 
             onClick={() => {
               localStorage.removeItem('adminToken');
@@ -53,6 +55,20 @@ const Dashboard = () => {
             <h2>攻略管理</h2>
             <p>Guides Management</p>
             <p className="card-description">管理旅游攻略和实用指南文章</p>
+          </Link>
+
+          <Link to="/admin/scraper" className="dashboard-card">
+            <div className="card-icon">🕷️</div>
+            <h2>文章抓取</h2>
+            <p>WeChat Article Scraper</p>
+            <p className="card-description">从微信公众号文章抓取数据并保存到数据库</p>
+          </Link>
+
+          <Link to="/admin/orders" className="dashboard-card">
+            <div className="card-icon">📦</div>
+            <h2>订单管理</h2>
+            <p>Orders Management</p>
+            <p className="card-description">查看和管理所有订单，更新订单状态和支付状态</p>
           </Link>
         </div>
       </div>

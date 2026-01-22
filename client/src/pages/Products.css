@@ -40,6 +40,33 @@
   font-size: 0.9rem;
   margin-bottom: 15px;
   flex: 1;
+  line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.product-description p {
+  margin: 5px 0;
+}
+
+.product-description img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+
+.product-description h1,
+.product-description h2,
+.product-description h3,
+.product-description h4,
+.product-description h5,
+.product-description h6 {
+  margin: 5px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .product-price {

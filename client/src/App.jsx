@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/admin/ProtectedRoute'
 import Home from './pages/Home'
@@ -13,21 +13,37 @@ import EventDetail from './pages/EventDetail'
 import GuideDetail from './pages/GuideDetail'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
-import Login from './pages/admin/Login'
+import AdminLogin from './pages/admin/Login'
 import Dashboard from './pages/admin/Dashboard'
 import ProductsManage from './pages/admin/ProductsManage'
 import EventsManage from './pages/admin/EventsManage'
 import LocationsManage from './pages/admin/LocationsManage'
 import GuidesManage from './pages/admin/GuidesManage'
+import WeChatScraper from './pages/admin/WeChatScraper'
+import OrdersManage from './pages/admin/OrdersManage'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Profile from './pages/Profile'
+import OrderDetail from './pages/OrderDetail'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import Pay from './pages/Pay'
+import ErrorBoundary from './components/ErrorBoundary'
 import './App.css'
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
+    <ErrorBoundary>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
+        <div className="App">
+          <Routes>
           {/* Admin routes (no navbar) */}
-          <Route path="/admin/login" element={<Login />} />
+          <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
@@ -53,6 +69,18 @@ function App() {
               <GuidesManage />
             </ProtectedRoute>
           } />
+          <Route path="/admin/scraper" element={
+            <ProtectedRoute>
+              <WeChatScraper />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/orders" element={
+            <ProtectedRoute>
+              <OrdersManage />
+            </ProtectedRoute>
+          } />
+          {/* Fallback for unknown admin paths */}
+          <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
           
           {/* Public routes (with navbar) */}
           <Route path="/" element={<Layout><Home /></Layout>} />
@@ -66,9 +94,16 @@ function App() {
           <Route path="/guides/:id" element={<Layout><GuideDetail /></Layout>} />
           <Route path="/cart" element={<Layout><Cart /></Layout>} />
           <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
-        </Routes>
-      </div>
-    </Router>
+          <Route path="/login" element={<Layout><Login /></Layout>} />
+          <Route path="/register" element={<Layout><Register /></Layout>} />
+          <Route path="/profile" element={<Layout><Profile /></Layout>} />
+          <Route path="/orders/:id" element={<Layout><OrderDetail /></Layout>} />
+          <Route path="/pay/:id" element={<Layout><Pay /></Layout>} />
+          <Route path="/privacy-policy" element={<Layout><PrivacyPolicy /></Layout>} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   )
 }
 

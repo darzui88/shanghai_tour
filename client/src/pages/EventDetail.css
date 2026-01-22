@@ -113,6 +113,46 @@
   color: #457b9d;
 }
 
+/* Opening Hours styles (same as LocationDetail) */
+.opening-hours {
+  display: grid;
+  gap: 10px;
+}
+
+.hours-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.hours-row.current-day {
+  background-color: #e8f4f8;
+  border-left: 3px solid #457b9d;
+  padding: 8px 12px;
+  margin: 4px -12px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.hours-row .day {
+  font-weight: 500;
+  min-width: 100px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-badge {
+  background-color: #457b9d;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .event-info-grid {
     grid-template-columns: 1fr;

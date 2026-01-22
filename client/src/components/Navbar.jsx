@@ -1,12 +1,67 @@
-import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { getUserInfo, verifyUserToken } from '../services/api'
 import './Navbar.css'
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [user, setUser] = useState(null)
   const location = useLocation()
+  const navigate = useNavigate()
 
   const isActive = (path) => location.pathname === path
+
+  useEffect(() => {
+    // 使用setTimeout避免阻塞初始渲染
+    const timer = setTimeout(() => {
+      checkUserLogin()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const checkUserLogin = async () => {
+    try {
+      const token = localStorage.getItem('userToken')
+      if (token) {
+        try {
+          const response = await verifyUserToken(token)
+          if (response && response.data && response.data.success) {
+            // Token有效，获取用户信息
+            try {
+              const userResponse = await getUserInfo()
+              if (userResponse && userResponse.data && userResponse.data.success) {
+                setUser(userResponse.data.user)
+              }
+            } catch (error) {
+              // 获取用户信息失败，清除token
+              console.error('Error getting user info:', error)
+              localStorage.removeItem('userToken')
+              setUser(null)
+            }
+          } else {
+            localStorage.removeItem('userToken')
+            setUser(null)
+          }
+        } catch (error) {
+          // Token验证失败，清除token
+          console.error('Error verifying token:', error)
+          localStorage.removeItem('userToken')
+          setUser(null)
+        }
+      }
+    } catch (error) {
+      // 防止任何错误导致页面崩溃
+      console.error('Error in checkUserLogin:', error)
+      setUser(null)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('userToken')
+    setUser(null)
+    navigate('/')
+    window.location.reload()
+  }
 
   return (
     <nav className="navbar">
@@ -80,6 +135,48 @@ const Navbar = () => {
               Cart 🛒
             </Link>
           </li>
+          {user ? (
+            <>
+              <li>
+                <Link 
+                  to="/profile" 
+                  className={isActive('/profile') ? 'active' : ''}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {user.name || user.email}
+                </Link>
+              </li>
+              <li>
+                <button 
+                  onClick={handleLogout}
+                  className="navbar-logout"
+                >
+                  Logout
+                </button>
+              </li>
+            </>
+          ) : (
+            <>
+              <li>
+                <Link 
+                  to="/login" 
+                  className={isActive('/login') ? 'active' : ''}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Login
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/register" 
+                  className={isActive('/register') ? 'active' : ''}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Register
+                </Link>
+              </li>
+            </>
+          )}
         </ul>
       </div>
     </nav>
